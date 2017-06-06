@@ -4,36 +4,36 @@ import sys
 
 from sklearn.metrics import confusion_matrix
 
-def get_bad_channels_zscore(channel, k, num_std):
+def get_bad_channels_zscore(sample, k, num_std):
 
     bad_channels = []
     
-    for i, dat in enumerate(channel):
+    for i, dat in enumerate(sample):
 
         # Select k values before and after specified point
         # and calculate Z-score
-        sub_channel = channel[max(0,i-k):min(i+k+1,len(channel)+1)]
-        sub_channel = np.delete(sub_channel, k)
+        sub_sample = sample[max(0,i-k):min(i+k+1,len(sample)+1)]
+        sub_sample = np.delete(sub_sample, k)
             
-        if np.std(sub_channel) == 0:
-            print sub_channel
-        if np.abs((dat - np.mean(sub_channel))) / np.std(sub_channel) > num_std:
+        if np.abs((dat - np.mean(sub_sample))) / np.std(sub_sample) > num_std:
             bad_channels.append(i)
 
     return bad_channels
 
-def get_bad_channels_polyfit(channel, k, _degree):
+def get_bad_channels_polyfit(sample, k, _degree):
     bad_channels = []
     
-    for i, dat in enumerate(channel):
-        sub_channel = channel[max(0,i-k):min(i+k+1,len(channel))]
-        sub_channel = np.delete(sub_channel, k)
+    for i, dat in enumerate(sample):
+        sub_sample = sample[max(0,i-k):min(i+k+1,len(sample))]
+        sub_sample = np.delete(sub_sample, k)
 
-        coefs = numpy.polyfit(np.arange(len(sub_channel),
-                              sub_channel,
+        coefs = numpy.polyfit(np.arange(len(sub_sample),
+                              sub_sample,
                               _degree))
-         
-        # TODO: Continue with the idea of fitting a polynomial
+
+        ploy_expectation = np.sum(coefs * k)
+        
+        # Find scheme to compare expectation to real data
 
 
 if __name__ == "__main__":

@@ -1,13 +1,6 @@
-import numpy as np
-'''
-import pandas as pd
-
-data = pd.read_hdf('ocoL1_data.h5')
-
-print data
-'''
 import h5py
 import matplotlib.pyplot as plt
+import numpy as np
 
 from collections import OrderedDict
 from contextlib import closing
@@ -81,7 +74,7 @@ with closing(h5py.File('oco2_L1bScND_13682a_170126_B7302_170127164246.h5', 'r'))
     '''
     bad_channels = get_bad_channels_polyfit(fourth_band, 4.5, 1)
 
-    _degree = 5
+    _degree = 15
     plt.plot(fourth_band)
     coefs = np.polyfit(np.arange(len(fourth_band)),
                           fourth_band,

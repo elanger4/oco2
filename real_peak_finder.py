@@ -8,6 +8,8 @@ print data
 '''
 import h5py
 import matplotlib.pyplot as plt
+
+from collections import OrderedDict
 from contextlib import closing
 
 def get_bad_channels_zscore(sample, k, num_std):
@@ -26,12 +28,33 @@ def get_bad_channels_zscore(sample, k, num_std):
 
     return bad_channels
 
+def get_bad_channels_polyfit(sample, num_std, _degree):
+    bad_channels = []
+
+    coefs = np.polyfit(np.arange(len(sample)),
+                          sample,
+                          _degree)
+    fitted_line = OrderedDict([])
+    for i, dat in enumerate(sample):
+        x = [i ** d for d in range(_degree+1)]
+
+        fitted_line[i] = np.sum(coefs * x[::-1])
+
+    new_std = np.std(fitted_line.values())
+    
+    for (i, dat), fit in zip(enumerate(sample), fitted_line.values()):
+        if abs(dat - fit) / new_std > num_std:
+            bad_channels.append(i)
+
+    #print bad_channels
+    return bad_channels
 
 with closing(h5py.File('oco2_L1bScND_13682a_170126_B7302_170127164246.h5', 'r')) as l1:
     samples = np.array(l1['SoundingMeasurements']['radiance_o2'])
     mask = np.array(l1['InstrumentHeader']['snr_coef'][:, :, :, 2])
-    fourth_band = samples[0][1]
-    fourth_mask = mask[0][1]
+    footprint = 7
+    fourth_band = samples[0][footprint]
+    fourth_mask = mask[0][footprint]
 
     num_channels = len(fourth_band)
 
@@ -39,46 +62,37 @@ with closing(h5py.File('oco2_L1bScND_13682a_170126_B7302_170127164246.h5', 'r'))
     p2 = False
     p4 = False
     bc = False
+    cb = False
 
-    bad_channels = get_bad_channels_zscore(fourth_band, 5, 3)
-    print bad_channels
-
-    '''
-    bad_true_full = np.zeros(len(fourth_band))
-    bad_pred_full = np.zeros(len(fourth_band))
-
-    for i in bad_true:
-        bad_true_full[i] = 1
-
-    for i in bad_pred:
-        bad_pred_full[i] = 1
     
-    k_std = (0,0)
-    accuracy = 0
-    for k in range(1, (num_channels/2)-1):
-        for std in np.arange(2,5, 0.25):
-            bad_pred = get_bad_channels_zscore(fourth_band, k, std)
-
-            bad_true_full = np.zeros(num_channels)
-            bad_pred_full = np.zeros(num_channels)
-
-            for i in bad_true:
-                bad_true_full[i] = 1
-
-            for i in bad_pred:
-                bad_pred_full[i] = 1
-
-            results = confusion_matrix(bad_true_full, bad_pred_full)
-            temp_accuracy = float(results[0][0] + results[1,1]) / num_channels
-            if temp_accuracy > accuracy:
-                accuracy = temp_accuracy
-                k_std = (k, std)
-
-    print 'Accuracy: ', accuracy
-    print 'k, std: ', k_std
     '''
+    deg_std = (0,0)
+    accuracy = 0
+    for std in np.arange(2,5, 0.25):
+        for d in range(1, 10):
+            bad_pred = get_bad_channels_polyfit(fourth_band, std, d)
 
+            if bad_pred:
+                deg_std = (d, std)
+                print accuracy
+
+    print 'deg, std: ', deg_std
+
+    '''
+    bad_channels = get_bad_channels_polyfit(fourth_band, 4.5, 1)
+
+    _degree = 5
     plt.plot(fourth_band)
+    coefs = np.polyfit(np.arange(len(fourth_band)),
+                          fourth_band,
+                          _degree)
+    fitted_line = OrderedDict([])
+    for i, dat in enumerate(fourth_band):
+        x = [i ** d for d in range(_degree+1)]
+
+        fitted_line[i] = np.sum(coefs * x[::-1])
+
+    plt.plot(fitted_line.values(), color='blue')
 
 
     for (i, val), msk in zip(enumerate(fourth_band), fourth_mask):
@@ -104,12 +118,20 @@ with closing(h5py.File('oco2_L1bScND_13682a_170126_B7302_170127164246.h5', 'r'))
                 plt.scatter(i, val, color='green')
         if i in bad_channels:
             if not bc:
-                plt.scatter(i, val, color='red', label='Labeled as bad channel')
+                plt.scatter(i, val, color='yellow', label='Labeled as bad channel')
                 bc = True
             else:
+                plt.scatter(i, val, color='yellow')
+        if i in bad_channels and msk == 1.0:
+            print 'WE DID IT!!!!'
+            if not cb:
+                plt.scatter(i, val, color='red', label='Correctly caught bad sample')
+                cb = True
+            else:
                 plt.scatter(i, val, color='red')
+        
 
 
     plt.legend()
-    plt.savefig('Simple_peak_finder_0_1.png')
+    #plt.savefig('Polyfit_real_peak_finder_2.0_5.png')
     plt.show()

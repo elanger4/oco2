@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import sys
 
+from collections import OrderedDict
 from sklearn.metrics import confusion_matrix
 
 def get_bad_channels_zscore(sample, k, num_std):
@@ -20,30 +21,35 @@ def get_bad_channels_zscore(sample, k, num_std):
 
     return bad_channels
 
-def get_bad_channels_polyfit(sample, k, _degree):
+def get_bad_channels_polyfit(sample, num_std, _degree):
     bad_channels = []
-    
+
+    coefs = np.polyfit(np.arange(len(sample)),
+                          sample,
+                          _degree)
+    fitted_line = OrderedDict([])
     for i, dat in enumerate(sample):
-        sub_sample = sample[max(0,i-k):min(i+k+1,len(sample))]
-        sub_sample = np.delete(sub_sample, k)
+        x = [i ** d for d in range(_degree+1)]
 
-        coefs = numpy.polyfit(np.arange(len(sub_sample),
-                              sub_sample,
-                              _degree))
+        fitted_line[i] = np.sum(coefs * x[::-1])
 
-        ploy_expectation = np.sum(coefs * k)
-        
-        # Find scheme to compare expectation to real data
+    new_std = np.std(fitted_line.values())
+    
+    for (i, dat), fit in zip(enumerate(sample), fitted_line.values()):
+        if abs(dat - fit) / new_std > num_std:
+            bad_channels.append(i)
 
+    #print bad_channels
+    return bad_channels
 
 if __name__ == "__main__":
 
     num_channels = 300
     outliers_frac = 0.05
 
-    np.random.seed(42)
+    np.random.seed(45)
 
-    channel = np.zeros(num_channels)
+    sample = np.zeros(num_channels)
     probs = np.random.uniform(0,1,300)
 
     bad_true = []
@@ -52,30 +58,21 @@ if __name__ == "__main__":
     for i, p in zip(np.arange(num_channels), probs):
         if p < outliers_frac:
             # Outlier
-            channel[i] = np.random.normal(int(i/50),5)
+            sample[i] = np.random.normal(int(i/50),5)
             bad_true.append(i)
         else:
             # Good channel
-            channel[i] = np.random.normal(int(i/50),1)
+            sample[i] = np.random.normal(int(i/50),1)
         
 
-    bad_pred = get_bad_channels_zscore(channel, 5, 3.75)
-
-    bad_true_full = np.zeros(num_channels)
-    bad_pred_full = np.zeros(num_channels)
-
-    '''
-    for i in bad_true:
-        bad_true_full[i] = 1
-
-    for i in bad_pred:
-        bad_pred_full[i] = 1
+    #bad_pred = get_bad_channels_polyfit(sample, 2.0, 10)
     
-    k_std = (0,0)
+    '''
+    deg_std = (0,0)
     accuracy = 0
-    for k in range(1, (num_channels/2)-1):
-        for std in np.arange(2,5, 0.25):
-            bad_pred = get_bad_channels_zscore(channel, k, std)
+    for std in np.arange(2,5, 0.25):
+        for d in range(1, 10):
+            bad_pred = get_bad_channels_polyfit(sample, std, d)
 
             bad_true_full = np.zeros(num_channels)
             bad_pred_full = np.zeros(num_channels)
@@ -88,23 +85,49 @@ if __name__ == "__main__":
 
             results = confusion_matrix(bad_true_full, bad_pred_full)
             temp_accuracy = float(results[0][0] + results[1,1]) / num_channels
-            if temp_accuracy > accuracy:
+            if temp_accuracy > accuracy and bad_pred:
                 accuracy = temp_accuracy
-                k_std = (k, std)
+                deg_std = (d, std)
+                print accuracy
 
     print 'Accuracy: ', accuracy
-    print 'k, std: ', k_std
+    print 'deg, std: ', deg_std
+
     '''
+    bad_pred = get_bad_channels_polyfit(sample, 2.0, 5)
+
+    bad_true_full = np.zeros(num_channels)
+    bad_pred_full = np.zeros(num_channels)
+
+    for i in bad_true:
+        bad_true_full[i] = 1
+
+    for i in bad_pred:
+        bad_pred_full[i] = 1
 
 
     #results = confusion_matrix(bad_true_full, bad_pred_full)
-    plt.plot(channel, color='blue')
+    _degree = 2
+
+    plt.plot(sample, color='black')
+    coefs = np.polyfit(np.arange(len(sample)),
+                          sample,
+                          _degree)
+    fitted_line = OrderedDict([])
+    print coefs
+    for i, dat in enumerate(sample):
+        x = [i ** d for d in range(_degree+1)]
+        print x
+
+        fitted_line[i] = np.sum(coefs * x[::-1])
+
+    plt.plot(fitted_line.values(), color='blue')
 
     good = False
     good_as_bad = False
     missed = False
 
-    for i, s in enumerate(channel):
+    for i, s in enumerate(sample):
         # Good channel classified as bad
         if i not in bad_true and i in bad_pred:
             if not good:
@@ -130,5 +153,5 @@ if __name__ == "__main__":
                 plt.scatter(i, s, color='orange')
 
     plt.legend()
-    #plt.savefig('simple_peak_finder.png')
+    plt.savefig('ploy_peak_finder_2.0_5.png')
     plt.show()

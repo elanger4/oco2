@@ -110,7 +110,7 @@ for sam in bad_samples:
 
 
         plt.legend()
-        plt_name =  'polyfit_reak_peak_finder_' + str(sam[0]) + '_' + str(sam[1]) + '.png'
+        plt_name =  'polyfit_real_peak_finder_' + str(sam[0]) + '_' + str(sam[1]) + '.png'
         print plt_name
         plt.savefig(plt_name)
         #plt.show()
